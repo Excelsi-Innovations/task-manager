@@ -1,6 +1,6 @@
-import { existsSync, mkdirSync, readFileSync, writeFileSync } from 'fs';
-import { homedir } from 'os';
-import { join } from 'path';
+import { existsSync, mkdirSync, readFileSync, writeFileSync } from "fs";
+import { homedir } from "os";
+import { join } from "path";
 
 export interface TaskManagerConfig {
   provider: string;
@@ -14,10 +14,16 @@ export interface TaskManagerConfig {
     owner: string;
     repo: string;
   };
+  atlas?: {
+    apiUrl: string;
+    email: string;
+    password: string;
+    defaultProjectId?: string;
+  };
 }
 
-const CONFIG_DIR = join(homedir(), '.config', 'task-manager');
-const CONFIG_FILE = join(CONFIG_DIR, 'config.json');
+const CONFIG_DIR = join(homedir(), ".config", "task-manager");
+const CONFIG_FILE = join(CONFIG_DIR, "config.json");
 
 export function getConfigPath(): string {
   return CONFIG_FILE;
@@ -29,7 +35,7 @@ export function loadConfig(): TaskManagerConfig | null {
   }
 
   try {
-    const content = readFileSync(CONFIG_FILE, 'utf-8');
+    const content = readFileSync(CONFIG_FILE, "utf-8");
     return JSON.parse(content) as TaskManagerConfig;
   } catch {
     return null;
@@ -52,13 +58,32 @@ export function getEffectiveConfig(): TaskManagerConfig | null {
   // Check if we have env vars for vikunja
   if (process.env.VIKUNJA_API_URL && process.env.VIKUNJA_TOKEN) {
     return {
-      provider: process.env.TM_PROVIDER || 'vikunja',
+      provider: process.env.TM_PROVIDER || "vikunja",
       vikunja: {
         apiUrl: process.env.VIKUNJA_API_URL,
         token: process.env.VIKUNJA_TOKEN,
         defaultProjectId: process.env.VIKUNJA_DEFAULT_PROJECT_ID
           ? Number(process.env.VIKUNJA_DEFAULT_PROJECT_ID)
           : fileConfig?.vikunja?.defaultProjectId,
+      },
+    };
+  }
+
+  // Check if we have env vars for Atlas
+  if (
+    process.env.ATLAS_API_URL &&
+    process.env.ATLAS_EMAIL &&
+    process.env.ATLAS_PASSWORD
+  ) {
+    return {
+      provider: process.env.TM_PROVIDER || "atlas",
+      atlas: {
+        apiUrl: process.env.ATLAS_API_URL,
+        email: process.env.ATLAS_EMAIL,
+        password: process.env.ATLAS_PASSWORD,
+        defaultProjectId:
+          process.env.ATLAS_DEFAULT_PROJECT_ID ??
+          fileConfig?.atlas?.defaultProjectId,
       },
     };
   }
