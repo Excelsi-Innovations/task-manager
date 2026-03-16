@@ -1,15 +1,16 @@
 #!/usr/bin/env node
-import { Command } from 'commander';
-import chalk from 'chalk';
-import { config } from 'dotenv';
-import { VikunjaProvider, VikunjaConfig } from './providers/vikunja.js';
+import { Command } from "commander";
+import chalk from "chalk";
+import { config } from "dotenv";
+import { VikunjaProvider, VikunjaConfig } from "./providers/vikunja.js";
+import { AtlasProvider, AtlasConfig } from "./providers/atlas.js";
 import {
   loadConfig,
   saveConfig,
   getConfigPath,
   getEffectiveConfig,
   TaskManagerConfig,
-} from './config.js';
+} from "./config.js";
 import type {
   TaskProvider,
   Task,
@@ -17,7 +18,7 @@ import type {
   TaskFilter,
   TaskStatus,
   TaskPriority,
-} from './interfaces.js';
+} from "./interfaces.js";
 
 // Load environment variables (lower priority than saved config for some things)
 config();
@@ -29,23 +30,23 @@ function getProvider(): TaskProvider {
 
   if (!effectiveConfig) {
     console.error(
-      chalk.red('Error: No configuration found.'),
-      '\nRun',
-      chalk.cyan('tm config --provider vikunja --url <URL> --token <TOKEN>'),
-      'to configure.',
+      chalk.red("Error: No configuration found."),
+      "\nRun",
+      chalk.cyan("tm config --provider vikunja --url <URL> --token <TOKEN>"),
+      "to configure.",
     );
     process.exit(1);
   }
 
-  const providerName = effectiveConfig.provider || 'vikunja';
+  const providerName = effectiveConfig.provider || "vikunja";
 
-  if (providerName === 'vikunja') {
+  if (providerName === "vikunja") {
     if (!effectiveConfig.vikunja?.apiUrl || !effectiveConfig.vikunja?.token) {
       console.error(
-        chalk.red('Error: Vikunja configuration incomplete.'),
-        '\nRun',
-        chalk.cyan('tm config --provider vikunja --url <URL> --token <TOKEN>'),
-        'to configure.',
+        chalk.red("Error: Vikunja configuration incomplete."),
+        "\nRun",
+        chalk.cyan("tm config --provider vikunja --url <URL> --token <TOKEN>"),
+        "to configure.",
       );
       process.exit(1);
     }
@@ -59,23 +60,52 @@ function getProvider(): TaskProvider {
     return new VikunjaProvider(vikunjaConfig);
   }
 
+  if (providerName === "atlas") {
+    if (
+      !effectiveConfig.atlas?.apiUrl ||
+      !effectiveConfig.atlas?.email ||
+      !effectiveConfig.atlas?.password
+    ) {
+      console.error(
+        chalk.red("Error: Atlas configuration incomplete."),
+        "\nRun",
+        chalk.cyan(
+          "tm config --provider atlas --url <URL> --email <EMAIL> --password <PASSWORD>",
+        ),
+        "to configure.",
+      );
+      process.exit(1);
+    }
+
+    const atlasConfig: AtlasConfig = {
+      apiUrl: effectiveConfig.atlas.apiUrl,
+      email: effectiveConfig.atlas.email,
+      password: effectiveConfig.atlas.password,
+      defaultProjectId: effectiveConfig.atlas.defaultProjectId,
+    };
+
+    return new AtlasProvider(atlasConfig);
+  }
+
   console.error(
-    chalk.red(`Error: Unknown provider "${providerName}". Supported: vikunja`),
+    chalk.red(
+      `Error: Unknown provider "${providerName}". Supported: vikunja, atlas`,
+    ),
   );
   process.exit(1);
 }
 
 function formatTask(task: Task): string {
   const statusIcon =
-    task.status === 'done'
-      ? chalk.green('✓')
-      : task.status === 'in_progress'
-        ? chalk.yellow('●')
-        : chalk.gray('○');
+    task.status === "done"
+      ? chalk.green("✓")
+      : task.status === "in_progress"
+        ? chalk.yellow("●")
+        : chalk.gray("○");
   const priorityColor =
-    task.priority === 'urgent'
+    task.priority === "urgent"
       ? chalk.red
-      : task.priority === 'high'
+      : task.priority === "high"
         ? chalk.yellow
         : chalk.white;
   return `${statusIcon} ${chalk.bold(task.id)} ${priorityColor(task.title)}`;
@@ -86,25 +116,29 @@ function outputJson(data: unknown): void {
 }
 
 program
-  .name('tm')
-  .description('Agnostic Task Manager CLI')
-  .version('0.1.0')
-  .option('--json', 'Output in JSON format (for AI agents)');
+  .name("tm")
+  .description("Agnostic Task Manager CLI")
+  .version("0.1.0")
+  .option("--json", "Output in JSON format (for AI agents)");
 
 // Config command
 program
-  .command('config')
-  .description('Configure the task manager')
-  .option('--provider <provider>', 'Set provider (vikunja, github)')
-  .option('--url <url>', 'API URL for the provider')
-  .option('--token <token>', 'API token')
-  .option('--project <id>', 'Default project ID')
-  .option('--show', 'Show current configuration')
+  .command("config")
+  .description("Configure the task manager")
+  .option("--provider <provider>", "Set provider (vikunja, atlas)")
+  .option("--url <url>", "API URL for the provider")
+  .option("--token <token>", "API token")
+  .option("--email <email>", "Atlas email address")
+  .option("--password <password>", "Atlas password")
+  .option("--project <id>", "Default project ID")
+  .option("--show", "Show current configuration")
   .action(
     (options: {
       provider?: string;
       url?: string;
       token?: string;
+      email?: string;
+      password?: string;
       project?: string;
       show?: boolean;
     }) => {
@@ -114,33 +148,47 @@ program
           outputJson(currentConfig || {});
         } else {
           if (currentConfig) {
-            console.log(chalk.bold('\n⚙️  Current Configuration:\n'));
-            console.log(`  ${chalk.gray('File:')} ${getConfigPath()}`);
+            console.log(chalk.bold("\n⚙️  Current Configuration:\n"));
+            console.log(`  ${chalk.gray("File:")} ${getConfigPath()}`);
             console.log(
-              `  ${chalk.gray('Provider:')} ${currentConfig.provider}`,
+              `  ${chalk.gray("Provider:")} ${currentConfig.provider}`,
             );
             if (currentConfig.vikunja) {
               console.log(
-                `  ${chalk.gray('Vikunja URL:')} ${currentConfig.vikunja.apiUrl}`,
+                `  ${chalk.gray("Vikunja URL:")} ${currentConfig.vikunja.apiUrl}`,
               );
               console.log(
-                `  ${chalk.gray('Token:')} ${currentConfig.vikunja.token.slice(0, 10)}...`,
+                `  ${chalk.gray("Token:")} ${currentConfig.vikunja.token.slice(0, 10)}...`,
               );
               if (currentConfig.vikunja.defaultProjectId) {
                 console.log(
-                  `  ${chalk.gray('Default Project:')} ${currentConfig.vikunja.defaultProjectId}`,
+                  `  ${chalk.gray("Default Project:")} ${currentConfig.vikunja.defaultProjectId}`,
+                );
+              }
+            }
+            if (currentConfig.atlas) {
+              console.log(
+                `  ${chalk.gray("Atlas URL:")} ${currentConfig.atlas.apiUrl}`,
+              );
+              console.log(
+                `  ${chalk.gray("Email:")} ${currentConfig.atlas.email}`,
+              );
+              console.log(`  ${chalk.gray("Password:")} ${"*".repeat(8)}`);
+              if (currentConfig.atlas.defaultProjectId) {
+                console.log(
+                  `  ${chalk.gray("Default Project:")} ${currentConfig.atlas.defaultProjectId}`,
                 );
               }
             }
             console.log();
           } else {
-            console.log(chalk.gray('No configuration found.'));
+            console.log(chalk.gray("No configuration found."));
             console.log(
-              'Run',
+              "Run",
               chalk.cyan(
-                'tm config --provider vikunja --url <URL> --token <TOKEN>',
+                "tm config --provider vikunja --url <URL> --token <TOKEN>",
               ),
-              'to configure.',
+              "to configure.",
             );
           }
         }
@@ -148,7 +196,7 @@ program
       }
 
       // Update config
-      const currentConfig = loadConfig() || { provider: 'vikunja' };
+      const currentConfig = loadConfig() || { provider: "vikunja" };
       const newConfig: TaskManagerConfig = { ...currentConfig };
 
       if (options.provider) {
@@ -156,11 +204,11 @@ program
       }
 
       if (
-        options.provider === 'vikunja' ||
-        (!options.provider && newConfig.provider === 'vikunja')
+        options.provider === "vikunja" ||
+        (!options.provider && newConfig.provider === "vikunja")
       ) {
         if (!newConfig.vikunja) {
-          newConfig.vikunja = { apiUrl: '', token: '' };
+          newConfig.vikunja = { apiUrl: "", token: "" };
         }
         if (options.url) {
           newConfig.vikunja.apiUrl = options.url;
@@ -173,24 +221,37 @@ program
         }
       }
 
+      if (
+        options.provider === "atlas" ||
+        (!options.provider && newConfig.provider === "atlas")
+      ) {
+        if (!newConfig.atlas) {
+          newConfig.atlas = { apiUrl: "", email: "", password: "" };
+        }
+        if (options.url) newConfig.atlas.apiUrl = options.url;
+        if (options.email) newConfig.atlas.email = options.email;
+        if (options.password) newConfig.atlas.password = options.password;
+        if (options.project) newConfig.atlas.defaultProjectId = options.project;
+      }
+
       saveConfig(newConfig);
 
       if (program.opts().json) {
         outputJson({ success: true, config: newConfig });
       } else {
-        console.log(chalk.green('✓ Configuration saved to'), getConfigPath());
+        console.log(chalk.green("✓ Configuration saved to"), getConfigPath());
       }
     },
   );
 
 // List tasks
 program
-  .command('list')
-  .alias('ls')
-  .description('List all tasks')
-  .option('-s, --status <status>', 'Filter by status (todo, in_progress, done)')
-  .option('-p, --project <id>', 'Filter by project ID')
-  .option('--all', 'Show all tasks including completed')
+  .command("list")
+  .alias("ls")
+  .description("List all tasks")
+  .option("-s, --status <status>", "Filter by status (todo, in_progress, done)")
+  .option("-p, --project <id>", "Filter by project ID")
+  .option("--all", "Show all tasks including completed")
   .action(
     async (options: { status?: string; project?: string; all?: boolean }) => {
       try {
@@ -201,7 +262,7 @@ program
           filter.status = options.status as TaskStatus;
         } else if (!options.all) {
           // By default, hide completed tasks
-          filter.status = 'todo';
+          filter.status = "todo";
         }
 
         if (options.project) {
@@ -214,16 +275,16 @@ program
           outputJson(tasks);
         } else {
           if (tasks.length === 0) {
-            console.log(chalk.gray('No tasks found.'));
+            console.log(chalk.gray("No tasks found."));
           } else {
             console.log(chalk.bold(`\n📋 Tasks (${tasks.length}):\n`));
-            tasks.forEach((task) => console.log('  ' + formatTask(task)));
+            tasks.forEach((task) => console.log("  " + formatTask(task)));
             console.log();
           }
         }
       } catch (error) {
         console.error(
-          chalk.red('Error:'),
+          chalk.red("Error:"),
           error instanceof Error ? error.message : error,
         );
         process.exit(1);
@@ -233,15 +294,15 @@ program
 
 // Add a task
 program
-  .command('add <title>')
-  .description('Create a new task')
-  .option('-d, --description <text>', 'Task description')
+  .command("add <title>")
+  .description("Create a new task")
+  .option("-d, --description <text>", "Task description")
   .option(
-    '-p, --priority <priority>',
-    'Priority (low, medium, high, urgent)',
-    'medium',
+    "-p, --priority <priority>",
+    "Priority (low, medium, high, urgent)",
+    "medium",
   )
-  .option('--project <id>', 'Project ID')
+  .option("--project <id>", "Project ID")
   .action(
     async (
       title: string,
@@ -252,7 +313,7 @@ program
         const input: CreateTaskInput = {
           title,
           description: options.description,
-          priority: (options.priority as TaskPriority) || 'medium',
+          priority: (options.priority as TaskPriority) || "medium",
           projectId: options.project,
         };
 
@@ -261,11 +322,11 @@ program
         if (program.opts().json) {
           outputJson(task);
         } else {
-          console.log(chalk.green('✓ Task created:'), formatTask(task));
+          console.log(chalk.green("✓ Task created:"), formatTask(task));
         }
       } catch (error) {
         console.error(
-          chalk.red('Error:'),
+          chalk.red("Error:"),
           error instanceof Error ? error.message : error,
         );
         process.exit(1);
@@ -275,21 +336,21 @@ program
 
 // Complete a task
 program
-  .command('done <id>')
-  .description('Mark a task as done')
+  .command("done <id>")
+  .description("Mark a task as done")
   .action(async (id: string) => {
     try {
       const provider = getProvider();
-      const task = await provider.updateTask(id, { status: 'done' });
+      const task = await provider.updateTask(id, { status: "done" });
 
       if (program.opts().json) {
         outputJson(task);
       } else {
-        console.log(chalk.green('✓ Task completed:'), formatTask(task));
+        console.log(chalk.green("✓ Task completed:"), formatTask(task));
       }
     } catch (error) {
       console.error(
-        chalk.red('Error:'),
+        chalk.red("Error:"),
         error instanceof Error ? error.message : error,
       );
       process.exit(1);
@@ -298,9 +359,9 @@ program
 
 // Delete a task
 program
-  .command('delete <id>')
-  .alias('rm')
-  .description('Delete a task')
+  .command("delete <id>")
+  .alias("rm")
+  .description("Delete a task")
   .action(async (id: string) => {
     try {
       const provider = getProvider();
@@ -309,11 +370,11 @@ program
       if (program.opts().json) {
         outputJson({ success: true, id });
       } else {
-        console.log(chalk.green('✓ Task deleted'));
+        console.log(chalk.green("✓ Task deleted"));
       }
     } catch (error) {
       console.error(
-        chalk.red('Error:'),
+        chalk.red("Error:"),
         error instanceof Error ? error.message : error,
       );
       process.exit(1);
@@ -322,15 +383,15 @@ program
 
 // List projects
 program
-  .command('projects')
-  .description('List all projects')
+  .command("projects")
+  .description("List all projects")
   .action(async () => {
     try {
       const provider = getProvider();
 
       if (!provider.listProjects) {
         console.error(
-          chalk.red('Error: This provider does not support projects.'),
+          chalk.red("Error: This provider does not support projects."),
         );
         process.exit(1);
       }
@@ -341,7 +402,7 @@ program
         outputJson(projects);
       } else {
         if (projects.length === 0) {
-          console.log(chalk.gray('No projects found.'));
+          console.log(chalk.gray("No projects found."));
         } else {
           console.log(chalk.bold(`\n📁 Projects (${projects.length}):\n`));
           projects.forEach((p) =>
@@ -352,7 +413,7 @@ program
       }
     } catch (error) {
       console.error(
-        chalk.red('Error:'),
+        chalk.red("Error:"),
         error instanceof Error ? error.message : error,
       );
       process.exit(1);
