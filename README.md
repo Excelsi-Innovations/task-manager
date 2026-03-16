@@ -23,6 +23,30 @@ tm list
 tm add "My new task"
 ```
 
+## Atlas Provider
+
+```bash
+# Configure Atlas
+tm config --provider atlas --url http://localhost:3000 --email user@example.com --password yourpassword
+tm config --project <atlas-project-uuid>   # Set default project
+
+# Use it
+tm projects                  # List Atlas projects
+tm list                      # List tickets (todo status)
+tm list --all                # All tickets
+tm add "New ticket"          # Create ticket
+tm done <ticket-uuid>        # Mark as done
+```
+
+Or set environment variables instead of saved config:
+
+```env
+ATLAS_API_URL=http://localhost:3000
+ATLAS_EMAIL=user@example.com
+ATLAS_PASSWORD=yourpassword
+ATLAS_DEFAULT_PROJECT_ID=<uuid>
+```
+
 ## Usage
 
 ```bash
@@ -72,5 +96,6 @@ tm config --show --json
 ## Supported Providers
 
 - [x] Vikunja
+- [x] Atlas
 - [ ] GitHub Projects (coming soon)
 - [ ] Linear (coming soon)
