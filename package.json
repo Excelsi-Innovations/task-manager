@@ -1,6 +1,6 @@
 {
   "name": "@excelsi-innovations/task-manager",
-  "version": "0.1.0",
+  "version": "0.1.1",
   "description": "Agnostic task management CLI with support for Vikunja, GitHub Projects, and more.",
   "author": "Excelsi Innovations",
   "license": "private",
