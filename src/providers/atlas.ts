@@ -180,11 +180,11 @@ export class AtlasProvider implements TaskProvider {
       params.status = taskStatusToAtlas(filter.status);
     }
 
-    const response = await this.client.get<{ tickets: AtlasTicket[] }>(
+    const response = await this.client.get<{ data: AtlasTicket[] }>(
       "/api/v1/tickets",
       { params },
     );
-    let tasks = response.data.tickets.map(mapAtlasTicketToTask);
+    let tasks = response.data.data.map(mapAtlasTicketToTask);
 
     // Atlas API does not support filtering by label name; do it client-side
     if (filter?.labels && filter.labels.length > 0) {
@@ -264,10 +264,10 @@ export class AtlasProvider implements TaskProvider {
 
   async getProject(id: string): Promise<Project | null> {
     try {
-      const response = await this.client.get<{ project: AtlasProject }>(
+      const response = await this.client.get<AtlasProject>(
         `/api/v1/projects/${id}`,
       );
-      const p = (response.data as any).project ?? response.data;
+      const p = response.data;
       return {
         id: p.id,
         name: p.name,
